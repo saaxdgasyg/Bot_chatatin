@@ -115,3 +115,33 @@ export async function clearUserData(telegramId) {
     }),
   ]);
 }
+
+/**
+ * Calculates total income and expenses in the last 7 days.
+ *
+ * @param {string} telegramId – Telegram user ID.
+ * @returns {Promise<object>} – { totalIncome, totalExpense }
+ */
+export async function getWeeklyStats(telegramId) {
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      userId: telegramId,
+      createdAt: {
+        gte: sevenDaysAgo,
+      },
+    },
+  });
+
+  const totalIncome = transactions
+    .filter((t) => t.type === "INCOME")
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const totalExpense = transactions
+    .filter((t) => t.type === "EXPENSE")
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  return { totalIncome, totalExpense };
+}

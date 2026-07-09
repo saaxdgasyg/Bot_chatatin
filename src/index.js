@@ -16,6 +16,7 @@ import {
   getSummary,
   getRecentTransactions,
   clearUserData,
+  getWeeklyStats,
 } from "./services/dbService.js";
 import { initCronService, exportAndCleanupTransactions } from "./services/cronService.js";
 
@@ -60,7 +61,7 @@ function typeLabel(type) {
 /**
  * Builds a pretty Markdown reply after a transaction is saved.
  */
-function buildSuccessReply(transactionsList, currentBalance) {
+function buildSuccessReply(transactionsList, currentBalance, warningMessage = "") {
   const listMarkup = transactionsList.map((tx, idx) => {
     return (
       `*Transaksi \\#${idx + 1}:*\n` +
@@ -71,12 +72,16 @@ function buildSuccessReply(transactionsList, currentBalance) {
     );
   }).join("\n\n");
 
-  return (
-    `✅ *${transactionsList.length} Transaksi Berhasil Dicatat\\!*\n\n` +
+  let reply = `✅ *${transactionsList.length} Transaksi Berhasil Dicatat\\!*\n\n` +
     listMarkup +
     `\n\n━━━━━━━━━━━━━━━━━━━━\n` +
-    `💰 *Sisa Saldo:* \`${formatRupiah(currentBalance)}\``
-  );
+    `💰 *Sisa Saldo:* \`${formatRupiah(currentBalance)}\``;
+
+  if (warningMessage) {
+    reply += `\n\n${warningMessage}`;
+  }
+
+  return reply;
 }
 
 /**
@@ -242,8 +247,28 @@ async function processTransaction(ctx, geminiResult) {
   // ── Get updated summary/balance ────────────────────────
   const summary = await getSummary(telegramId);
 
+  // ── Calculate Weekly Stats & Warning Message ────────────
+  const weekly = await getWeeklyStats(telegramId);
+  let warningMessage = "";
+
+  if (weekly.totalExpense > 0) {
+    if (weekly.totalIncome > 0) {
+      const ratio = weekly.totalExpense / weekly.totalIncome;
+      if (ratio > 0.8) {
+        warningMessage = `⚠️ *Peringatan Pemborosan\\!*\nPengeluaran seminggu terakhir Anda \\(\`${escapeMarkdown(formatRupiah(weekly.totalExpense))}\`\\) sudah mencapai *${Math.round(ratio * 100)}%* dari pemasukan \\(\`${escapeMarkdown(formatRupiah(weekly.totalIncome))}\`\\)\\. Yuk rem belanja Anda\\!`;
+      } else if (ratio > 0.5) {
+        warningMessage = `💡 *Tips Keuangan:*\nPengeluaran seminggu terakhir Anda \\(\`${escapeMarkdown(formatRupiah(weekly.totalExpense))}\`\\) sekitar *${Math.round(ratio * 100)}%* dari pemasukan\\. Tetap jaga pola belanja ya\\!`;
+      }
+    } else {
+      // No income recorded, check absolute expense threshold (e.g. 300,000 IDR)
+      if (weekly.totalExpense > 300000) {
+        warningMessage = `⚠️ *Peringatan Pemborosan\\!*\nPengeluaran seminggu terakhir Anda cukup tinggi \\(\`${escapeMarkdown(formatRupiah(weekly.totalExpense))}\`\\) tanpa ada catatan pemasukan\\. Batasi pengeluaran non\\-esensial\\!`;
+      }
+    }
+  }
+
   // ── Reply with formatted success message ───────────────
-  await ctx.replyWithMarkdownV2(buildSuccessReply(savedTransactions, summary.balance));
+  await ctx.replyWithMarkdownV2(buildSuccessReply(savedTransactions, summary.balance, warningMessage));
 }
 
 // ── TEXT handler ─────────────────────────────────────────────
