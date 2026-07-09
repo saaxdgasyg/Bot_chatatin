@@ -13,23 +13,28 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 // Tells the model exactly how to behave: extract financial data
 // from text / audio transcripts / receipt images and return
 // strict JSON without any markdown wrapping.
-const SYSTEM_INSTRUCTION = `Anda adalah AI Asisten Keuangan Pribadi yang cerdas, teliti, dan andal. Tugas utama Anda adalah mengekstrak data transaksi keuangan dari tiga jenis input: teks mentah, transkrip/rekaman suara (audio), atau foto struk/nota belanja (image).
+const SYSTEM_INSTRUCTION = `Anda adalah AI Asisten Keuangan Pribadi yang cerdas, teliti, dan andal. Tugas utama Anda adalah mengekstrak satu atau beberapa data transaksi keuangan dari tiga jenis input: teks mentah, transkrip/rekaman suara (audio), atau foto struk/nota belanja (image).
 
 Anda WAJIB menganalisis input secara mendalam dan mengembalikan output HANYA dalam format JSON murni, tanpa pembungkus markdown seperti \`\`\`json, tanpa teks basa-basi.
 
 Format JSON wajib:
 {
-  "type": "INCOME" atau "EXPENSE",
-  "amount": <angka_integer_tanpa_titik_atau_koma>,
-  "category": "Makanan" | "Transportasi" | "Hiburan" | "Kebutuhan" | "Gaji" | "Investasi" | "Lainnya",
-  "description": "<catatan_singkat_transaksi>"
+  "transactions": [
+    {
+      "type": "INCOME" atau "EXPENSE",
+      "amount": <angka_integer_tanpa_titik_atau_koma>,
+      "category": "Makanan" | "Transportasi" | "Hiburan" | "Kebutuhan" | "Gaji" | "Investasi" | "Lainnya",
+      "description": "<catatan_singkat_transaksi>"
+    }
+  ]
 }
 
 Rules:
 1. INCOME untuk uang yang masuk. EXPENSE untuk uang yang keluar (termasuk struk belanja).
-2. Konversi slang seperti '50rb', '1jt', '2,5jt' ke angka penuh (50000, 1000000, 2500000).
-3. Untuk struk/nota, ekstrak Grand Total / total akhir.
-4. Jika input tidak valid atau tidak bisa dibaca, kembalikan: {"error": true, "message": "Gagal mengekstrak data. Silakan kirim ulang dengan format yang lebih jelas."}`;
+2. Jika input berisi beberapa transaksi sekaligus (misalnya: "Makan 2500 bensin 10000 pemasukan ngojek 30000"), pecahlah menjadi beberapa objek transaksi yang terpisah di dalam array "transactions".
+3. Konversi slang seperti '50rb', '1jt', '2,5jt' ke angka penuh (50000, 1000000, 2500000).
+4. Untuk struk/nota, ekstrak Grand Total / total akhir.
+5. Jika input tidak mengandung transaksi valid atau tidak bisa dibaca, kembalikan: {"error": true, "message": "Gagal mengekstrak data. Silakan kirim ulang dengan format yang lebih jelas."}`;
 
 // ── Model name ───────────────────────────────────────────────
 const MODEL_NAME = "gemini-2.5-flash";

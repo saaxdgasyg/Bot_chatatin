@@ -58,14 +58,21 @@ function typeLabel(type) {
 /**
  * Builds a pretty Markdown reply after a transaction is saved.
  */
-function buildSuccessReply(txData, savedTx, currentBalance) {
+function buildSuccessReply(transactionsList, currentBalance) {
+  const listMarkup = transactionsList.map((tx, idx) => {
+    return (
+      `*Transaksi \\#${idx + 1}:*\n` +
+      `📌 *Tipe:* ${typeLabel(tx.type)}\n` +
+      `💵 *Jumlah:* \`${formatRupiah(tx.amount)}\`\n` +
+      `🏷️ *Kategori:* ${escapeMarkdown(tx.category)}\n` +
+      `📝 *Deskripsi:* ${escapeMarkdown(tx.description || "-")}`
+    );
+  }).join("\n\n");
+
   return (
-    `✅ *Transaksi Berhasil Dicatat\\!*\n\n` +
-    `📌 *Tipe:* ${typeLabel(txData.type)}\n` +
-    `💵 *Jumlah:* \`${formatRupiah(txData.amount)}\`\n` +
-    `🏷️ *Kategori:* ${escapeMarkdown(txData.category)}\n` +
-    `📝 *Deskripsi:* ${escapeMarkdown(txData.description || "-")}\n` +
-    `🕐 *Waktu:* ${escapeMarkdown(savedTx.createdAt.toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }))}\n\n` +
+    `✅ *${transactionsList.length} Transaksi Berhasil Dicatat\\!*\n\n` +
+    listMarkup +
+    `\n\n━━━━━━━━━━━━━━━━━━━━\n` +
     `💰 *Sisa Saldo:* \`${formatRupiah(currentBalance)}\``
   );
 }
@@ -183,8 +190,18 @@ async function processTransaction(ctx, geminiResult) {
     return ctx.reply(`⚠️ ${geminiResult.message}`);
   }
 
+  const transactions = geminiResult.transactions;
+
   // ── Validate required fields ────────────────────────────
-  if (!geminiResult.type || !geminiResult.amount) {
+  if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+    return ctx.reply(
+      "⚠️ Gagal mengekstrak data transaksi. Pastikan pesan Anda berisi informasi keuangan yang jelas."
+    );
+  }
+
+  // Filter out any entries that might be incomplete
+  const validTransactions = transactions.filter(t => t.type && t.amount);
+  if (validTransactions.length === 0) {
     return ctx.reply(
       "⚠️ Gagal mengekstrak data transaksi. Pastikan pesan Anda berisi informasi keuangan yang jelas."
     );
@@ -197,14 +214,19 @@ async function processTransaction(ctx, geminiResult) {
     firstName: ctx.from.first_name || null,
   };
 
-  // ── Save to database ───────────────────────────────────
-  const savedTx = await saveTransaction(telegramId, userData, geminiResult);
+  const savedTransactions = [];
+
+  // ── Save all transactions to database ──────────────────
+  for (const txData of validTransactions) {
+    const saved = await saveTransaction(telegramId, userData, txData);
+    savedTransactions.push(saved);
+  }
 
   // ── Get updated summary/balance ────────────────────────
   const summary = await getSummary(telegramId);
 
   // ── Reply with formatted success message ───────────────
-  await ctx.replyWithMarkdownV2(buildSuccessReply(geminiResult, savedTx, summary.balance));
+  await ctx.replyWithMarkdownV2(buildSuccessReply(savedTransactions, summary.balance));
 }
 
 // ── TEXT handler ─────────────────────────────────────────────
