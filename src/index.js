@@ -46,14 +46,15 @@ function typeLabel(type) {
 /**
  * Builds a pretty Markdown reply after a transaction is saved.
  */
-function buildSuccessReply(txData, savedTx) {
+function buildSuccessReply(txData, savedTx, currentBalance) {
   return (
     `✅ *Transaksi Berhasil Dicatat\\!*\n\n` +
     `📌 *Tipe:* ${typeLabel(txData.type)}\n` +
     `💵 *Jumlah:* \`${formatRupiah(txData.amount)}\`\n` +
     `🏷️ *Kategori:* ${escapeMarkdown(txData.category)}\n` +
     `📝 *Deskripsi:* ${escapeMarkdown(txData.description || "-")}\n` +
-    `🕐 *Waktu:* ${escapeMarkdown(savedTx.createdAt.toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }))}`
+    `🕐 *Waktu:* ${escapeMarkdown(savedTx.createdAt.toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }))}\n\n` +
+    `💰 *Sisa Saldo:* \`${formatRupiah(currentBalance)}\``
   );
 }
 
@@ -174,8 +175,11 @@ async function processTransaction(ctx, geminiResult) {
   // ── Save to database ───────────────────────────────────
   const savedTx = await saveTransaction(telegramId, userData, geminiResult);
 
+  // ── Get updated summary/balance ────────────────────────
+  const summary = await getSummary(telegramId);
+
   // ── Reply with formatted success message ───────────────
-  await ctx.replyWithMarkdownV2(buildSuccessReply(geminiResult, savedTx));
+  await ctx.replyWithMarkdownV2(buildSuccessReply(geminiResult, savedTx, summary.balance));
 }
 
 // ── TEXT handler ─────────────────────────────────────────────
