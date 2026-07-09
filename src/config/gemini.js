@@ -32,7 +32,7 @@ Rules:
 4. Jika input tidak valid atau tidak bisa dibaca, kembalikan: {"error": true, "message": "Gagal mengekstrak data. Silakan kirim ulang dengan format yang lebih jelas."}`;
 
 // ── Model name ───────────────────────────────────────────────
-const MODEL_NAME = "gemini-1.5-flash";
+const MODEL_NAME = "gemini-2.5-flash";
 
 // ── Helper: parse text input ─────────────────────────────────
 /**
