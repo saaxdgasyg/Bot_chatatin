@@ -2,6 +2,7 @@
   "name": "finance-bot",
   "version": "1.0.0",
   "description": "Telegram Finance Bot – Record income & expenses via text, voice, or receipt photos. Powered by Gemini AI, Prisma, and PostgreSQL.",
+  "type": "module",
   "main": "src/index.js",
   "scripts": {
     "start": "npx prisma db push && node src/index.js",

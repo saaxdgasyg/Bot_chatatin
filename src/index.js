@@ -4,19 +4,18 @@
 // them through Gemini AI → DB Service → user reply.
 // ─────────────────────────────────────────────────────────────
 
-require("dotenv").config();
-
-const { Telegraf } = require("telegraf");
-const {
+import "dotenv/config";
+import { Telegraf } from "telegraf";
+import {
   parseTextWithGemini,
   parseImageWithGemini,
   parseAudioWithGemini,
-} = require("./config/gemini");
-const {
+} from "./config/gemini.js";
+import {
   saveTransaction,
   getSummary,
   getRecentTransactions,
-} = require("./services/dbService");
+} from "./services/dbService.js";
 
 // ── Initialise the bot ──────────────────────────────────────
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
@@ -269,8 +268,8 @@ if (process.env.NODE_ENV === "production") {
     console.log(`✅ Webhook set: ${webhookUrl}`);
   });
 
-  // Use Telegraf's built-in webhook handler with Express-compatible createWebhook.
-  const { createServer } = require("http");
+  // Use Node's built-in http server for the webhook handler.
+  const { createServer } = await import("http");
 
   const server = createServer(async (req, res) => {
     if (req.url === webhookPath && req.method === "POST") {

@@ -4,7 +4,7 @@
 // Configured for deterministic JSON-only output (temperature 0.1).
 // ─────────────────────────────────────────────────────────────
 
-const { GoogleGenAI } = require("@google/genai");
+import { GoogleGenAI } from "@google/genai";
 
 // ── Initialise the Gemini client ─────────────────────────────
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -42,7 +42,7 @@ const MODEL_NAME = "gemini-1.5-flash";
  * @param {string} text – The raw user message.
  * @returns {Promise<object>} Parsed JSON from Gemini.
  */
-async function parseTextWithGemini(text) {
+export async function parseTextWithGemini(text) {
   const response = await ai.models.generateContent({
     model: MODEL_NAME,
     contents: text,
@@ -66,7 +66,7 @@ async function parseTextWithGemini(text) {
  * @param {string} mimeType   – e.g. "image/jpeg".
  * @returns {Promise<object>} Parsed JSON from Gemini.
  */
-async function parseImageWithGemini(imageBuffer, mimeType) {
+export async function parseImageWithGemini(imageBuffer, mimeType) {
   const imagePart = {
     inlineData: {
       data: imageBuffer.toString("base64"),
@@ -99,7 +99,7 @@ async function parseImageWithGemini(imageBuffer, mimeType) {
  * @param {string} mimeType   – e.g. "audio/ogg".
  * @returns {Promise<object>} Parsed JSON from Gemini.
  */
-async function parseAudioWithGemini(audioBuffer, mimeType) {
+export async function parseAudioWithGemini(audioBuffer, mimeType) {
   const audioPart = {
     inlineData: {
       data: audioBuffer.toString("base64"),
@@ -122,9 +122,3 @@ async function parseAudioWithGemini(audioBuffer, mimeType) {
 
   return JSON.parse(response.text);
 }
-
-module.exports = {
-  parseTextWithGemini,
-  parseImageWithGemini,
-  parseAudioWithGemini,
-};

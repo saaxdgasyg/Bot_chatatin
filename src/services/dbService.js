@@ -4,7 +4,7 @@
 // Telegram handler never touches the ORM directly.
 // ─────────────────────────────────────────────────────────────
 
-const { PrismaClient } = require("@prisma/client");
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -20,7 +20,7 @@ const prisma = new PrismaClient();
  * @param {object} transactionData   – { type, amount, category, description }
  * @returns {Promise<object>}        – The created Transaction record.
  */
-async function saveTransaction(telegramId, userData, transactionData) {
+export async function saveTransaction(telegramId, userData, transactionData) {
   // ── Step 1: Ensure the user exists ────────────────────────
   await prisma.user.upsert({
     where: { id: telegramId },
@@ -56,7 +56,7 @@ async function saveTransaction(telegramId, userData, transactionData) {
  * @param {string} telegramId – Telegram user ID.
  * @returns {Promise<object>} – { totalIncome, totalExpense, balance, count }
  */
-async function getSummary(telegramId) {
+export async function getSummary(telegramId) {
   const transactions = await prisma.transaction.findMany({
     where: { userId: telegramId },
   });
@@ -84,16 +84,10 @@ async function getSummary(telegramId) {
  * @param {number} limit      – How many records to return (default 10).
  * @returns {Promise<Array>}  – Array of Transaction records.
  */
-async function getRecentTransactions(telegramId, limit = 10) {
+export async function getRecentTransactions(telegramId, limit = 10) {
   return prisma.transaction.findMany({
     where: { userId: telegramId },
     orderBy: { createdAt: "desc" },
     take: limit,
   });
 }
-
-module.exports = {
-  saveTransaction,
-  getSummary,
-  getRecentTransactions,
-};
