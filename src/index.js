@@ -24,6 +24,14 @@ const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 // ── Initialise cron service ─────────────────────────────────
 initCronService(bot);
 
+// ── Register Bot Commands Menu in Telegram ──────────────────
+bot.telegram.setMyCommands([
+  { command: "start", description: "Panduan awal & cara pakai bot" },
+  { command: "ringkasan", description: "Lihat total pemasukan, pengeluaran & saldo" },
+  { command: "riwayat", description: "Lihat 10 riwayat transaksi terakhir" },
+  { command: "export", description: "Ekspor semua data ke Excel & hapus riwayat" }
+]).catch(err => console.error("Failed to set commands:", err));
+
 // ── Helpers ─────────────────────────────────────────────────
 
 /**
