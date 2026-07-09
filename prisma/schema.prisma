@@ -1,0 +1,43 @@
+// ─────────────────────────────────────────────────────────────
+// Prisma Schema – Finance Bot
+// Database: PostgreSQL (hosted on Railway or any PG provider)
+// ─────────────────────────────────────────────────────────────
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ── Enums ────────────────────────────────────────────────────
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+// ── Models ───────────────────────────────────────────────────
+
+/// Mirrors a Telegram user. The `id` is the Telegram user ID (string).
+model User {
+  id           String        @id
+  username     String?
+  firstName    String?
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+}
+
+/// A single financial transaction linked to a User.
+model Transaction {
+  id          String          @id @default(uuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        TransactionType
+  amount      Float
+  category    String          @default("Lainnya")
+  description String?
+  createdAt   DateTime        @default(now())
+}
