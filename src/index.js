@@ -16,9 +16,13 @@ import {
   getSummary,
   getRecentTransactions,
 } from "./services/dbService.js";
+import { initCronService, exportAndCleanupTransactions } from "./services/cronService.js";
 
 // ── Initialise the bot ──────────────────────────────────────
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
+
+// ── Initialise cron service ─────────────────────────────────
+initCronService(bot);
 
 // ── Helpers ─────────────────────────────────────────────────
 
@@ -83,8 +87,21 @@ bot.start((ctx) => {
       `📸 *Foto Struk* — Kirim foto nota/struk\n\n` +
       `Saya akan otomatis mengekstrak data dan menyimpannya\\.\n\n` +
       `📊 Ketik /ringkasan untuk lihat ringkasan keuangan\n` +
-      `📜 Ketik /riwayat untuk lihat 10 transaksi terakhir`
+      `📜 Ketik /riwayat untuk lihat 10 transaksi terakhir\n` +
+      `📥 Ketik /export untuk download laporan Excel dan hapus riwayat`
   );
+});
+
+// /export – Manual Excel export & database cleanup
+bot.command("export", async (ctx) => {
+  try {
+    const telegramId = String(ctx.from.id);
+    await ctx.reply("⏳ Sedang memproses dan mengekspor data transaksi Anda ke Excel...");
+    await exportAndCleanupTransactions(bot, telegramId, "manual");
+  } catch (err) {
+    console.error("❌ /export error:", err);
+    ctx.reply("⚠️ Gagal mengekspor laporan keuangan. Silakan coba lagi nanti.");
+  }
 });
 
 // /ringkasan – Financial summary
