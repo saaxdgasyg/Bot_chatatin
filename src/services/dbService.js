@@ -98,3 +98,20 @@ export async function getRecentTransactions(telegramId, limit = 10) {
     take: limit,
   });
 }
+
+/**
+ * Deletes all transactions and resets carryOverBalance to 0 for a user.
+ *
+ * @param {string} telegramId – Telegram user ID.
+ */
+export async function clearUserData(telegramId) {
+  await prisma.$transaction([
+    prisma.transaction.deleteMany({
+      where: { userId: telegramId },
+    }),
+    prisma.user.update({
+      where: { id: telegramId },
+      data: { carryOverBalance: 0.0 },
+    }),
+  ]);
+}

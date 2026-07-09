@@ -15,6 +15,7 @@ import {
   saveTransaction,
   getSummary,
   getRecentTransactions,
+  clearUserData,
 } from "./services/dbService.js";
 import { initCronService, exportAndCleanupTransactions } from "./services/cronService.js";
 
@@ -29,7 +30,8 @@ bot.telegram.setMyCommands([
   { command: "start", description: "Panduan awal & cara pakai bot" },
   { command: "ringkasan", description: "Lihat total pemasukan, pengeluaran & saldo" },
   { command: "riwayat", description: "Lihat 10 riwayat transaksi terakhir" },
-  { command: "export", description: "Ekspor semua data ke Excel & hapus riwayat" }
+  { command: "export", description: "Ekspor semua data ke Excel & hapus riwayat" },
+  { command: "clear", description: "Hapus bersih semua data transaksi & saldo" }
 ]).catch(err => console.error("Failed to set commands:", err));
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -103,7 +105,8 @@ bot.start((ctx) => {
       `Saya akan otomatis mengekstrak data dan menyimpannya\\.\n\n` +
       `📊 Ketik /ringkasan untuk lihat ringkasan keuangan\n` +
       `📜 Ketik /riwayat untuk lihat 10 transaksi terakhir\n` +
-      `📥 Ketik /export untuk download laporan Excel dan hapus riwayat`
+      `📥 Ketik /export untuk download laporan Excel dan hapus riwayat\n` +
+      `🧹 Ketik /clear untuk hapus bersih semua data transaksi & sisa saldo`
   );
 });
 
@@ -116,6 +119,20 @@ bot.command("export", async (ctx) => {
   } catch (err) {
     console.error("❌ /export error:", err);
     ctx.reply("⚠️ Gagal mengekspor laporan keuangan. Silakan coba lagi nanti.");
+  }
+});
+
+// /clear – Reset and clear all user data (transactions and carry over balance)
+bot.command("clear", async (ctx) => {
+  try {
+    const telegramId = String(ctx.from.id);
+    await clearUserData(telegramId);
+    ctx.replyWithMarkdownV2(
+      `🧹 *Semua data transaksi dan sisa saldo Anda telah berhasil dihapus bersih\\!*`
+    );
+  } catch (err) {
+    console.error("❌ /clear error:", err);
+    ctx.reply("⚠️ Gagal menghapus data transaksi. Silakan coba lagi nanti.");
   }
 });
 
