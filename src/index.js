@@ -257,47 +257,49 @@ if (process.env.NODE_ENV === "production") {
   const DOMAIN = process.env.RAILWAY_PUBLIC_DOMAIN;
 
   if (!DOMAIN) {
-    console.error("❌ RAILWAY_PUBLIC_DOMAIN is not set. Cannot start webhook.");
-    process.exit(1);
+    console.warn("⚠️ RAILWAY_PUBLIC_DOMAIN is not set. Falling back to long polling in production.");
+    bot.launch().then(() => {
+      console.log("🤖 Finance Bot is running in polling mode (production fallback)...");
+    });
+  } else {
+    const webhookPath = `/telegraf/${bot.secretPathComponent()}`;
+    const webhookUrl = `https://${DOMAIN}${webhookPath}`;
+
+    bot.telegram.setWebhook(webhookUrl).then(() => {
+      console.log(`✅ Webhook set: ${webhookUrl}`);
+    });
+
+    // Use Node's built-in http server for the webhook handler.
+    const { createServer } = await import("http");
+
+    const server = createServer(async (req, res) => {
+      if (req.url === webhookPath && req.method === "POST") {
+        // Collect the request body
+        let body = "";
+        req.on("data", (chunk) => (body += chunk));
+        req.on("end", async () => {
+          try {
+            const update = JSON.parse(body);
+            await bot.handleUpdate(update);
+            res.writeHead(200);
+            res.end("OK");
+          } catch (e) {
+            console.error("Webhook processing error:", e);
+            res.writeHead(500);
+            res.end("Error");
+          }
+        });
+      } else {
+        // Health-check endpoint
+        res.writeHead(200);
+        res.end("🤖 Finance Bot is running!");
+      }
+    });
+
+    server.listen(PORT, () => {
+      console.log(`🚀 Bot server listening on port ${PORT}`);
+    });
   }
-
-  const webhookPath = `/telegraf/${bot.secretPathComponent()}`;
-  const webhookUrl = `https://${DOMAIN}${webhookPath}`;
-
-  bot.telegram.setWebhook(webhookUrl).then(() => {
-    console.log(`✅ Webhook set: ${webhookUrl}`);
-  });
-
-  // Use Node's built-in http server for the webhook handler.
-  const { createServer } = await import("http");
-
-  const server = createServer(async (req, res) => {
-    if (req.url === webhookPath && req.method === "POST") {
-      // Collect the request body
-      let body = "";
-      req.on("data", (chunk) => (body += chunk));
-      req.on("end", async () => {
-        try {
-          const update = JSON.parse(body);
-          await bot.handleUpdate(update);
-          res.writeHead(200);
-          res.end("OK");
-        } catch (e) {
-          console.error("Webhook processing error:", e);
-          res.writeHead(500);
-          res.end("Error");
-        }
-      });
-    } else {
-      // Health-check endpoint
-      res.writeHead(200);
-      res.end("🤖 Finance Bot is running!");
-    }
-  });
-
-  server.listen(PORT, () => {
-    console.log(`🚀 Bot server listening on port ${PORT}`);
-  });
 } else {
   // ── Development: Long Polling mode ──────────────────────
   bot.launch().then(() => {
