@@ -20,7 +20,15 @@ const prisma = new PrismaClient();
  */
 export async function exportAndCleanupTransactions(bot, userId, mode = "harian") {
   try {
-    // ── 1. Fetch transactions for the user ─────────────────────
+    // ── 1. Fetch user to get current carryOverBalance ──────────
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { carryOverBalance: true },
+    });
+
+    const carryOver = user ? user.carryOverBalance : 0;
+
+    // ── 2. Fetch transactions for the user ─────────────────────
     const transactions = await prisma.transaction.findMany({
       where: { userId },
       orderBy: { createdAt: "asc" },
@@ -33,9 +41,10 @@ export async function exportAndCleanupTransactions(bot, userId, mode = "harian")
       return;
     }
 
-    // ── 2. Create Excel workbook & worksheet ───────────────────
+    // ── 3. Create Excel workbook & worksheet ───────────────────
     const wb = XLSX.utils.book_new();
 
+    // Map transactions to data rows
     const data = transactions.map((t, idx) => ({
       "No.": idx + 1,
       "Tanggal (WIB)": t.createdAt.toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
@@ -45,13 +54,39 @@ export async function exportAndCleanupTransactions(bot, userId, mode = "harian")
       "Deskripsi": t.description || "-",
     }));
 
+    // Calculate net change of these transactions
+    const netChange = transactions.reduce((sum, t) => {
+      return t.type === "INCOME" ? sum + t.amount : sum - t.amount;
+    }, 0);
+
+    const totalBalance = carryOver + netChange;
+
+    // Append summary rows in the data array for visual reference in Excel
+    data.push({}); // Empty separator row
+    data.push({
+      "No.": "",
+      "Tanggal (WIB)": "SALDO SEBELUMNYA (CARRY OVER):",
+      "Tipe": "",
+      "Jumlah (Rp)": carryOver,
+      "Kategori": "",
+      "Deskripsi": "",
+    });
+    data.push({
+      "No.": "",
+      "Tanggal (WIB)": "SALDO AKHIR SAAT INI:",
+      "Tipe": "",
+      "Jumlah (Rp)": totalBalance,
+      "Kategori": "",
+      "Deskripsi": "",
+    });
+
     const ws = XLSX.utils.json_to_sheet(data);
 
     // Auto-fit column widths for better styling/readability
     const maxLens = {};
     data.forEach((row) => {
       Object.keys(row).forEach((key) => {
-        const valStr = String(row[key]);
+        const valStr = String(row[key] || "");
         maxLens[key] = Math.max(maxLens[key] || key.length, valStr.length);
       });
     });
@@ -62,7 +97,7 @@ export async function exportAndCleanupTransactions(bot, userId, mode = "harian")
     // Write to a buffer
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
 
-    // ── 3. Send document via Telegram ──────────────────────────
+    // ── 4. Send document via Telegram ──────────────────────────
     const dateStr = new Date().toLocaleDateString("id-ID", {
       timeZone: "Asia/Jakarta",
       day: "2-digit",
@@ -72,8 +107,8 @@ export async function exportAndCleanupTransactions(bot, userId, mode = "harian")
 
     const filename = `Laporan-Keuangan-${dateStr}.xlsx`;
     const caption = mode === "harian"
-      ? `📊 *Laporan Keuangan Harian (${dateStr})*\n\nSemua transaksi Anda hari ini telah diekspor ke Excel dan dibersihkan dari database untuk menghemat ruang penyimpanan.`
-      : `📊 *Ekspor Laporan Keuangan (${dateStr})*\n\nTransaksi Anda berhasil diekspor ke Excel dan dibersihkan dari database sesuai permintaan.`;
+      ? `📊 *Laporan Keuangan Harian (${dateStr})*\n\nSemua transaksi Anda hari ini telah diekspor ke Excel dan dibersihkan dari database.\n\n💰 *Total Saldo Terkini:* \`Rp ${totalBalance.toLocaleString("id-ID")}\` (tetap disimpan di bot)`
+      : `📊 *Ekspor Laporan Keuangan (${dateStr})*\n\nTransaksi Anda berhasil diekspor ke Excel dan dibersihkan dari database.\n\n💰 *Total Saldo Terkini:* \`Rp ${totalBalance.toLocaleString("id-ID")}\` (tetap disimpan di bot)`;
 
     await bot.telegram.sendDocument(
       userId,
@@ -81,14 +116,22 @@ export async function exportAndCleanupTransactions(bot, userId, mode = "harian")
       { caption, parse_mode: "Markdown" }
     );
 
-    // ── 4. Delete the exported transactions ────────────────────
-    await prisma.transaction.deleteMany({
-      where: {
-        id: { in: transactions.map((t) => t.id) },
-      },
-    });
+    // ── 5. Update user's carryOverBalance & delete transactions ──
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: {
+          carryOverBalance: totalBalance,
+        },
+      }),
+      prisma.transaction.deleteMany({
+        where: {
+          id: { in: transactions.map((t) => t.id) },
+        },
+      }),
+    ]);
 
-    console.log(`✅ Success export & cleanup for user ${userId} (${transactions.length} rows)`);
+    console.log(`✅ Success export & cleanup for user ${userId} (${transactions.length} rows). carryOverBalance updated to ${totalBalance}.`);
   } catch (err) {
     console.error(`❌ Export & cleanup error for user ${userId}:`, err);
     await bot.telegram.sendMessage(

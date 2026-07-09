@@ -57,6 +57,13 @@ export async function saveTransaction(telegramId, userData, transactionData) {
  * @returns {Promise<object>} – { totalIncome, totalExpense, balance, count }
  */
 export async function getSummary(telegramId) {
+  const user = await prisma.user.findUnique({
+    where: { id: telegramId },
+    select: { carryOverBalance: true },
+  });
+
+  const carryOver = user ? user.carryOverBalance : 0;
+
   const transactions = await prisma.transaction.findMany({
     where: { userId: telegramId },
   });
@@ -72,7 +79,7 @@ export async function getSummary(telegramId) {
   return {
     totalIncome,
     totalExpense,
-    balance: totalIncome - totalExpense,
+    balance: carryOver + totalIncome - totalExpense,
     count: transactions.length,
   };
 }

@@ -23,11 +23,12 @@ enum TransactionType {
 
 /// Mirrors a Telegram user. The `id` is the Telegram user ID (string).
 model User {
-  id           String        @id
-  username     String?
-  firstName    String?
-  createdAt    DateTime      @default(now())
-  transactions Transaction[]
+  id               String        @id
+  username         String?
+  firstName        String?
+  carryOverBalance Float         @default(0.0)
+  createdAt        DateTime      @default(now())
+  transactions     Transaction[]
 }
 
 /// A single financial transaction linked to a User.
